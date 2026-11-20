@@ -141,6 +141,72 @@ struct common_sampler {
 
         const int n_vocab = llama_vocab_n_tokens(vocab);
 
+        const uint32_t raw_probs_count = sampled_probs
+                ? llama_get_sampled_probs_count_ith(ctx, idx) : 0;
+        const uint32_t raw_logits_count = sampled_logits
+                ? llama_get_sampled_logits_count_ith(ctx, idx) : 0;
+        const uint32_t raw_candidates_count =
+                llama_get_sampled_candidates_count_ith(ctx, idx);
+        const llama_token raw_sampled_token =
+                llama_get_sampled_token_ith(ctx, idx);
+
+        const size_t raw_ids_count = sampled_probs ? raw_probs_count :
+                sampled_logits ? raw_logits_count : (size_t) n_vocab;
+
+        const size_t raw_scan_count = raw_candidates_count > 0
+                ? std::min<size_t>(raw_ids_count, raw_candidates_count)
+                : raw_ids_count;
+
+        size_t first_bad_id = raw_scan_count;
+
+        if (sampled_ids == nullptr && raw_scan_count > 0) {
+            first_bad_id = 0;
+        } else {
+            for (size_t i = 0; i < raw_scan_count; ++i) {
+                if (sampled_ids[i] < 0 || sampled_ids[i] >= n_vocab) {
+                    first_bad_id = i;
+                    break;
+                }
+            }
+        }
+
+        const bool count_mismatch =
+                raw_candidates_count > 0 &&
+                raw_candidates_count != raw_ids_count;
+
+        if (first_bad_id < raw_scan_count || count_mismatch) {
+            LOG_ERR(
+                "%s: INVALID raw sampled candidate IDs: "
+                "ctx=%p idx=%d vocab=%d sampled_token=%d "
+                "probs=%p logits=%p ids=%p "
+                "probs_count=%u logits_count=%u candidates_count=%u "
+                "ids_count=%zu scan_count=%zu first_bad=%zu\\n",
+                __func__,
+                (void *) ctx,
+                idx,
+                n_vocab,
+                (int) raw_sampled_token,
+                (const void *) sampled_probs,
+                (const void *) sampled_logits,
+                (const void *) sampled_ids,
+                raw_probs_count,
+                raw_logits_count,
+                raw_candidates_count,
+                raw_ids_count,
+                raw_scan_count,
+                first_bad_id
+            );
+
+            for (size_t i = 0; i < std::min<size_t>(16, raw_scan_count); ++i) {
+                LOG_ERR(
+                    "raw sampled_ids[%zu]=%d (0x%08x)\\n",
+                    i,
+                    (int) sampled_ids[i],
+                    (unsigned int) sampled_ids[i]
+                );
+            }
+        }
+
         if (sampled_probs) {
             const uint32_t sampled_probs_count = llama_get_sampled_probs_count_ith(ctx, idx);
             cur.resize(sampled_probs_count);

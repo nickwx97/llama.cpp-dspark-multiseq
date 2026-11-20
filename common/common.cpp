@@ -2243,6 +2243,23 @@ llama_batch_ext * common_batch::get_sub_batch(int32_t off, int32_t n) {
         const token & t = tokens[i];
 
         int32_t idx;
+        if (t.id < LLAMA_TOKEN_NULL || t.id >= 100000000) {
+            GGML_ABORT(
+                "%s: INVALID common_batch token: "
+                "i=%d id=%d seq_id=%d pos=%d "
+                "batch_size=%d embd_data=%p embd_n_rows=%zu embd_n_embd=%zu\\n",
+                __func__,
+                i,
+                t.id,
+                t.seq_id,
+                t.pos[0],
+                size(),
+                (void *) t.embd.data,
+                t.embd.n_rows,
+                t.embd.n_embd
+            );
+        }
+
         if (t.id != LLAMA_TOKEN_NULL) {
             idx = llama_batch_ext_add_token(res, t.seq_id, t.id);
             if (idx < 0) {

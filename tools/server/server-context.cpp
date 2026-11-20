@@ -167,6 +167,15 @@ struct server_batch {
     }
 
     bool add(int32_t id_slot, llama_token token, llama_pos pos, bool output, bool is_prompt) {
+        if (token < 0 || token >= 100000000) {
+            GGML_ABORT(
+                "INVALID server_batch token at insertion: "
+                "slot=%d token=%d pos=%d output=%d is_prompt=%d "
+                "batch_size=%zu\n",
+                id_slot, token, pos, output, is_prompt, tokens.size()
+            );
+        }
+
         if ((int32_t)tokens.size() >= n_tokens_alloc) {
             return false;
         }
@@ -541,6 +550,25 @@ struct server_slot {
 
     // add sampled token of this slot to the batch, optionally add the speculative draft tokens if any
     void handle_last_sampled_token(server_batch & batch) {
+        if (sampled < 0 || sampled >= 100000000) {
+            GGML_ABORT(
+                "INVALID sampled token before batch insertion: "
+                "slot=%d sampled=%d draft_count=%zu pos_next=%d\n",
+                id, (int) sampled, spec_draft.size(), prompt.tokens.pos_next()
+            );
+        }
+
+        for (size_t i = 0; i < spec_draft.size(); ++i) {
+            const auto token = spec_draft[i];
+            if (token < 0 || token >= 100000000) {
+                GGML_ABORT(
+                    "INVALID DSpark draft token before batch insertion: "
+                    "slot=%d draft_index=%zu token=%d draft_count=%zu pos_next=%d\n",
+                    id, i, (int) token, spec_draft.size(), prompt.tokens.pos_next()
+                );
+            }
+        }
+
         bool add_ok = true;
         if (spec_draft.empty()) {
             // no speculative decoding

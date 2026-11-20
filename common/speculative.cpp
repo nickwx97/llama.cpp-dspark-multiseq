@@ -1114,7 +1114,7 @@ struct common_speculative_impl_draft_dflash : public common_speculative_impl {
 
         // offload draft sampling to the backend
         backend_chains.assign(n_seq, nullptr);
-        if (this->params.backend_sampling && !is_dflash2 && !is_lilicorr) {
+        if (this->params.backend_sampling && !is_dflash2 && !is_lilicorr && !is_dspark) {
             for (llama_seq_id seq_id = 0; seq_id < (llama_seq_id) n_seq; ++seq_id) {
                 llama_sampler * chain = llama_sampler_chain_init(llama_sampler_chain_default_params());
                 llama_sampler_chain_add(chain, llama_sampler_init_top_k(10));
@@ -1379,6 +1379,38 @@ struct common_speculative_impl_draft_dflash : public common_speculative_impl {
                     common_sampler_sample(smpl, ctx_dft, idx, true);
 
                     const auto * cur_p = common_sampler_get_candidates(smpl, true);
+
+                   if (cur_p == nullptr || cur_p->size == 0) {
+                       GGML_ABORT(
+                           "DSpark sampler returned no candidates: "
+                           "seq_id=%d i=%d idx=%d\\n",
+                           seq_id, i, idx
+                       );
+                   }
+
+                   const llama_token candidate_id = cur_p->data[0].id;
+
+                   if (candidate_id < 0 || candidate_id >= 100000000) {
+                       LOG_ERR(
+                           "INVALID DSpark sampler candidate: "
+                           "seq_id=%d i=%d idx=%d candidate_count=%zu id=%d\\n",
+                           seq_id, i, idx, cur_p->size, (int) candidate_id
+                       );
+
+                       for (int k = 0; k < std::min(5, (int) cur_p->size); ++k) {
+                           LOG_ERR(
+                               "DSpark candidate[%d]: id=%d p=%.8g\\n",
+                               k,
+                               (int) cur_p->data[k].id,
+                               (double) cur_p->data[k].p
+                           );
+                       }
+
+                       GGML_ABORT(
+                           "Invalid token in DSpark sampler candidates "
+                           "before result.push_back\\n"
+                       );
+                   }
 
                     for (int k = 0; k < std::min(3, (int) cur_p->size); ++k) {
                         LOG_DBG(" - seq_id %d, draft candidate %3d, pos %3d: %6d (%8.3f) '%s'\n",

@@ -153,3 +153,19 @@ a.out.*
 
 AGENTS.local.md
 .pi/SYSTEM.md
+
+# Local llama.cpp build output
+/build*/
+/bin*/
+
+# Model weights
+*.gguf
+
+# Compiled artifacts
+*.o
+*.a
+*.so
+*.dll
+*.exe
+*.pyc
+__pycache__/
