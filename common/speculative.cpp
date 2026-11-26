@@ -1114,7 +1114,7 @@ struct common_speculative_impl_draft_dflash : public common_speculative_impl {
 
         // offload draft sampling to the backend
         backend_chains.assign(n_seq, nullptr);
-        if (this->params.backend_sampling && !is_dflash2 && !is_lilicorr && !is_dspark) {
+        if (this->params.backend_sampling && !is_dflash2 && !is_lilicorr) {
             for (llama_seq_id seq_id = 0; seq_id < (llama_seq_id) n_seq; ++seq_id) {
                 llama_sampler * chain = llama_sampler_chain_init(llama_sampler_chain_default_params());
                 llama_sampler_chain_add(chain, llama_sampler_init_top_k(10));
